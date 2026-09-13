@@ -355,9 +355,9 @@ mongoose.connect(MONGODB_URI)
       await User.create({ username: ADMIN_USERNAME, passwordHash: hashPassword(ADMIN_PASSWORD) });
       console.log(`Created admin user "${ADMIN_USERNAME}".`);
     }
-    const server = app.listen(PORT, () => {
-      console.log(`Capital Hosiery ledger running at http://localhost:${PORT}`);
-    });
+    const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Capital Hosiery ledger running on port ${PORT}`);
+});
     server.on('error', error => {
       if (error.code === 'EADDRINUSE') {
         console.error(`Port ${PORT} is already in use. Stop the existing server or change PORT in .env.`);

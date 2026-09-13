@@ -12,7 +12,22 @@
 </head>
 <body>
 
-<div class="app">
+<div class="auth-screen" id="authScreen">
+  <form class="auth-card" id="loginForm">
+    <div class="brand auth-brand">
+      <div class="brand-mark">CHG</div>
+      <div class="brand-text"><div class="name">Capital Hosiery &amp; Garments</div><div class="tag">Secure Business Ledger</div></div>
+    </div>
+    <h1>Sign in</h1>
+    <div class="field"><label>Username</label><input id="loginUsername" autocomplete="username" required></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+    <div class="err" id="loginError" hidden></div>
+    <button class="btn amber" type="submit">Sign in</button>
+    <button class="btn ghost auth-reset-link" type="button" onclick="showResetPassword()">Reset password</button>
+  </form>
+</div>
+
+<div class="app locked" id="appShell">
   <div class="sidebar">
     <div class="brand">
       <div class="brand-mark">CHG</div>
@@ -27,10 +42,19 @@
       <button class="nav-item" data-nav="history"><span class="nav-icon">🧾</span> Transaction History</button>
       <button class="nav-item" data-nav="reports"><span class="nav-icon">📊</span> Reports &amp; Export</button>
     </div>
-    <div class="sidebar-foot">Demo preview — sample data shown.<br>All balances &amp; stock are calculated live from transactions, not stored manually.</div>
+    <div class="sidebar-foot">
+      <div class="session-user" id="sessionUser">Signed in</div>
+      <button class="side-action" onclick="openChangePassword()">Change password</button>
+      <button class="side-action" onclick="logout()">Logout</button>
+    </div>
   </div>
 
   <div class="main">
+    <div class="mobile-session">
+      <span id="mobileSessionUser">Signed in</span>
+      <button onclick="openChangePassword()">Password</button>
+      <button onclick="logout()">Logout</button>
+    </div>
 
     <!-- DASHBOARD -->
     <div class="section active" id="sec-dashboard">

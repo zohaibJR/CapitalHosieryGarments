@@ -46,6 +46,142 @@ let dataDirty = false;
 let apiReady = false;
 let syncTimer = null;
 const API_BASE = (window.CHGL_CONFIG && window.CHGL_CONFIG.API_BASE) || 'http://localhost:4000/api';
+const AUTH_TOKEN_KEY = 'chgAuthToken';
+let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || '';
+let currentUser = null;
+
+function setAuth(token, user){
+  authToken = token || '';
+  currentUser = user || null;
+  if(authToken) localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+  const sessionUser = document.getElementById('sessionUser');
+  if(sessionUser) sessionUser.textContent = currentUser ? `Signed in as ${currentUser.username}` : 'Signed in';
+  const mobileSessionUser = document.getElementById('mobileSessionUser');
+  if(mobileSessionUser) mobileSessionUser.textContent = currentUser ? currentUser.username : 'Signed in';
+}
+function showApp(){
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('locked');
+}
+function showLogin(message){
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.getElementById('appShell').classList.add('locked');
+  const err = document.getElementById('loginError');
+  err.textContent = message || '';
+  err.hidden = !message;
+}
+async function authFetch(url, options = {}){
+  const headers = { ...(options.headers || {}) };
+  if(authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(url, { ...options, headers });
+  if(res.status === 401){
+    setAuth('', null);
+    apiReady = false;
+    showLogin('Session expired. Please sign in again.');
+  }
+  return res;
+}
+async function submitLogin(event){
+  event.preventDefault();
+  const err = document.getElementById('loginError');
+  err.hidden = true;
+  const submit = event.target.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try{
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('loginUsername').value,
+        password: document.getElementById('loginPassword').value
+      })
+    });
+    const body = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(body.error || 'Login failed');
+    setAuth(body.token, body.user);
+    showApp();
+    await loadState();
+  }catch(error){
+    err.textContent = error.message;
+    err.hidden = false;
+  }finally{
+    submit.disabled = false;
+  }
+}
+async function initAuth(){
+  document.getElementById('loginForm').addEventListener('submit', submitLogin);
+  if(!authToken){ showLogin(); return; }
+  try{
+    const res = await authFetch(`${API_BASE}/auth/me`);
+    if(!res.ok) throw new Error('Please sign in again.');
+    const body = await res.json();
+    setAuth(authToken, body.user);
+    showApp();
+    await loadState();
+  }catch(error){
+    setAuth('', null);
+    showLogin(error.message);
+  }
+}
+function logout(){
+  setAuth('', null);
+  apiReady = false;
+  showLogin('Signed out.');
+}
+function showResetPassword(){
+  openModal(`
+    <h3>Reset Password</h3><div class="sub">Use the reset token configured on the server.</div>
+    <div class="field"><label>Username</label><input id="resetUser" autocomplete="username" value="${document.getElementById('loginUsername').value || 'admin'}"></div>
+    <div class="field"><label>Reset token</label><input id="resetToken" type="password" autocomplete="one-time-code"></div>
+    <div class="field"><label>New password</label><input id="resetNewPassword" type="password" autocomplete="new-password"></div>
+    <button class="btn amber" style="width:100%;" onclick="resetPassword()">Reset and sign in</button>
+  `);
+}
+async function resetPassword(){
+  try{
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('resetUser').value,
+        resetToken: document.getElementById('resetToken').value,
+        newPassword: document.getElementById('resetNewPassword').value
+      })
+    });
+    const body = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(body.error || 'Reset failed');
+    setAuth(body.token, body.user);
+    closeModal();
+    showApp();
+    await loadState();
+  }catch(error){ toast(error.message, true); }
+}
+function openChangePassword(){
+  openModal(`
+    <h3>Change Password</h3><div class="sub">Your next sign-in will use the new password.</div>
+    <div class="field"><label>Current password</label><input id="changeCurrentPassword" type="password" autocomplete="current-password"></div>
+    <div class="field"><label>New password</label><input id="changeNewPassword" type="password" autocomplete="new-password"></div>
+    <button class="btn amber" style="width:100%;" onclick="changePassword()">Update password</button>
+  `);
+}
+async function changePassword(){
+  try{
+    const res = await authFetch(`${API_BASE}/auth/change-password`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        currentPassword: document.getElementById('changeCurrentPassword').value,
+        newPassword: document.getElementById('changeNewPassword').value
+      })
+    });
+    const body = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(body.error || 'Password update failed');
+    setAuth(body.token, body.user);
+    closeModal();
+    toast('Password updated');
+  }catch(error){ toast(error.message, true); }
+}
 
 function markDirty(){
   dataDirty = true;
@@ -69,7 +205,7 @@ function normalizeLoadedState(state){
 }
 async function loadState(){
   try{
-    const res = await fetch(`${API_BASE}/state`);
+    const res = await authFetch(`${API_BASE}/state`);
     if(!res.ok) throw new Error(await res.text());
     normalizeLoadedState(await res.json());
     apiReady = true;
@@ -87,7 +223,7 @@ async function persistState(){
   if(!apiReady || !dataDirty) return;
   dataDirty = false;
   try{
-    const res = await fetch(`${API_BASE}/state`, {
+    const res = await authFetch(`${API_BASE}/state`, {
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({products, cities, customers, vendors, ledger})
@@ -2002,4 +2138,4 @@ function renderAll(){
   if(document.getElementById('repSummaryGrid')) renderReportSummary();
   if(dataDirty) schedulePersist();
 }
-document.addEventListener('DOMContentLoaded', loadState);
+document.addEventListener('DOMContentLoaded', initAuth);

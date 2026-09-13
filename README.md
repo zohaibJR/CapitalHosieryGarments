@@ -48,4 +48,12 @@ Set these in Render:
 ```text
 MONGODB_URI=your MongoDB Atlas URI
 FRONTEND_ORIGIN=https://your-vercel-domain.vercel.app
+JWT_SECRET=a random value at least 32 characters long
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your first admin password, at least 8 characters
+RESET_PASSWORD_TOKEN=a private token used by the reset password screen
 ```
+
+The backend creates the first admin user on startup if it does not exist yet.
+After that, users can change their password inside the app. The reset password
+screen works only when the private `RESET_PASSWORD_TOKEN` is entered.

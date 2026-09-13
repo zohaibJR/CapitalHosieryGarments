@@ -54,6 +54,21 @@
         <div class="stat"><div class="label">Today's Transfers</div><div class="val numeral" id="stTodayTransfers">0</div></div>
       </div>
 
+      <div class="dashboard-insights">
+        <div class="panel trend-panel">
+          <div class="panel-heading"><div><h2>Business pulse</h2><div class="panel-kicker">Sales, recoveries and purchases · last 7 days</div></div><span class="chart-legend"><i class="legend-dot sales"></i>Sales <i class="legend-dot recovery"></i>Recoveries <i class="legend-dot purchase"></i>Purchases</span></div>
+          <div id="dashTrendChart" class="trend-chart"></div>
+        </div>
+        <div class="panel health-panel">
+          <div class="panel-heading"><div><h2>Stock health</h2><div class="panel-kicker">Every product across both shops</div></div><span class="health-icon">◒</span></div>
+          <div id="dashStockHealth"></div>
+        </div>
+      </div>
+      <div class="panel city-chart-panel">
+        <div class="panel-heading"><div><h2>Outstanding by city</h2><div class="panel-kicker">Where follow-up will have the biggest impact</div></div><span class="panel-kicker">Wholesale receivables</span></div>
+        <div id="dashCityChart" class="city-chart"></div>
+      </div>
+
       <div class="grid grid-2">
         <div class="panel"><h2>Wholesale Outstanding — By City</h2><div id="dashCityList"></div></div>
         <div class="panel"><h2>Top Wholesale Customers <span class="count">by outstanding</span></h2><div id="dashTopCustomers"></div></div>

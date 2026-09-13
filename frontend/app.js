@@ -218,6 +218,53 @@ document.getElementById('modalOverlay').addEventListener('click',e=>{ if(e.targe
 /* =====================================================================
    DASHBOARD
 ===================================================================== */
+function dashboardDateKey(daysAgo){
+  const date = new Date();
+  date.setHours(12,0,0,0);
+  date.setDate(date.getDate()-daysAgo);
+  return date.toISOString().slice(0,10);
+}
+function dashboardDateLabel(dateKey){
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString('en-GB',{weekday:'short'}).slice(0,3);
+}
+function dashboardTrendChart(){
+  const days = Array.from({length:7},(_,index)=>{
+    const date = dashboardDateKey(6-index);
+    const sales = ledger.filter(e=>(e.type==='retail_sale'||e.type==='wholesale_sale')&&e.date===date).reduce((sum,e)=>sum+(e.type==='retail_sale'?retailSaleNetAmount(e):e.amount),0);
+    const recovery = ledger.filter(e=>e.type==='wholesale_recovery'&&e.date===date).reduce((sum,e)=>sum+e.amount,0);
+    const purchase = ledger.filter(e=>e.type==='vendor_purchase'&&e.date===date).reduce((sum,e)=>sum+e.amount,0);
+    return {label:dashboardDateLabel(date), sales, recovery, purchase};
+  });
+  const max = Math.max(...days.flatMap(day=>[day.sales,day.recovery,day.purchase]),1);
+  const width = 680, height = 220, left = 42, right = 12, top = 18, bottom = 32;
+  const plotWidth = width-left-right, plotHeight = height-top-bottom, groupWidth = plotWidth/days.length;
+  const y = value => top+plotHeight-(value/max)*plotHeight;
+  const bars = days.map((day,index)=>{
+    const x = left+index*groupWidth+groupWidth*.18;
+    const barWidth = Math.max(7,groupWidth*.18);
+    return `<g class="chart-group"><rect x="${x}" y="${y(day.sales)}" width="${barWidth}" height="${Math.max(0,top+plotHeight-y(day.sales))}" rx="3" class="bar-sales"><title>${day.label}: ${fmt(day.sales)} sales</title></rect><rect x="${x+barWidth+3}" y="${y(day.recovery)}" width="${barWidth}" height="${Math.max(0,top+plotHeight-y(day.recovery))}" rx="3" class="bar-recovery"><title>${day.label}: ${fmt(day.recovery)} recoveries</title></rect><rect x="${x+(barWidth+3)*2}" y="${y(day.purchase)}" width="${barWidth}" height="${Math.max(0,top+plotHeight-y(day.purchase))}" rx="3" class="bar-purchase"><title>${day.label}: ${fmt(day.purchase)} purchases</title></rect><text x="${left+index*groupWidth+groupWidth/2}" y="${height-9}" text-anchor="middle">${day.label}</text></g>`;
+  }).join('');
+  const grid = [0,.5,1].map(step=>`<line x1="${left}" y1="${y(max*step)}" x2="${width-right}" y2="${y(max*step)}" class="chart-grid"/><text x="${left-8}" y="${y(max*step)+4}" text-anchor="end">${step===0?'0':fmt(max*step).replace('Rs ','')}</text>`).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Seven day business activity chart">${grid}<line x1="${left}" y1="${top+plotHeight}" x2="${width-right}" y2="${top+plotHeight}" class="chart-axis"/>${bars}</svg>`;
+}
+function dashboardStockHealth(){
+  let healthy=0, low=0, out=0;
+  products.forEach(product=>['Upper','Lower'].forEach(shop=>{
+    const stock = productStock(product.id,shop);
+    if(stock<=0) out++; else if(stock<product.minStock) low++; else healthy++;
+  }));
+  const total = healthy+low+out;
+  if(!total) return '<div class="health-empty">No product data yet</div>';
+  const healthyPct = Math.round(healthy/total*100);
+  const lowPct = Math.round(low/total*100);
+  const outPct = 100-healthyPct-lowPct;
+  return `<div class="health-visual"><div class="health-ring" style="--healthy:${healthyPct}%;--low:${lowPct}%"><div><strong>${healthyPct}%</strong><span>healthy</span></div></div><div class="health-list"><div><i class="health-swatch healthy"></i><span>Healthy</span><strong>${healthy}</strong></div><div><i class="health-swatch low"></i><span>Low stock</span><strong>${low}</strong></div><div><i class="health-swatch out"></i><span>Out of stock</span><strong>${out}</strong></div></div></div><div class="health-summary">${outPct>0?`${out} product${out===1?'':'s'} need restocking now.`:'All products have stock available.'}</div>`;
+}
+function dashboardCityChart(){
+  const cityData = cities.map(city=>({city, amount:cityStats(city).outstanding})).sort((a,b)=>b.amount-a.amount).slice(0,5);
+  const max = Math.max(...cityData.map(item=>item.amount),1);
+  return cityData.length ? cityData.map((item,index)=>`<div class="city-bar-row clickable" onclick="jumpToCity('${item.city.replace(/'/g,"\\'")}')"><div class="city-bar-label"><span>${index+1}</span><strong>${item.city}</strong><b>${fmt(item.amount)}</b></div><div class="city-bar-track"><div class="city-bar-fill" style="width:${Math.max(item.amount?4:0,item.amount/max*100)}%"></div></div></div>`).join('') : '<div class="empty">No city balances yet</div>';
+}
 function renderDashboard(){
   document.getElementById('todayDate').textContent = todayStr();
   const today = todayISO();
@@ -256,6 +303,9 @@ function renderDashboard(){
   document.getElementById('stTodayRecoveries').textContent = recToday;
   document.getElementById('stTodayPurchases').textContent = purToday;
   document.getElementById('stTodayTransfers').textContent = xferToday;
+  document.getElementById('dashTrendChart').innerHTML = dashboardTrendChart();
+  document.getElementById('dashStockHealth').innerHTML = dashboardStockHealth();
+  document.getElementById('dashCityChart').innerHTML = dashboardCityChart();
 
   document.getElementById('dashCityList').innerHTML = cities.map(c=>{
     const s = cityStats(c);
